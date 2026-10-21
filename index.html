@@ -881,6 +881,17 @@ html{font-family:'Poppins',sans-serif;font-size:16px;color:var(--text);backgroun
 .filter-row{display:flex;gap:8px;padding:18px 0 26px;flex-wrap:wrap}
 .fbtn{height:32px;padding:0 14px;border:1.5px solid rgba(255,255,255,0.15);background:transparent;border-radius:20px;color:rgba(255,255,255,0.55);font-size:12px;cursor:pointer;font-family:'Poppins',sans-serif;transition:all .12s;white-space:nowrap}
 .fbtn:hover,.fbtn.active{background:var(--lime);border-color:var(--lime);color:#035341;font-weight:600}
+.fsel{height:32px;padding:0 12px;border:1.5px solid rgba(255,255,255,0.15);background:transparent;border-radius:20px;color:rgba(255,255,255,0.55);font-size:12px;cursor:pointer;font-family:'Poppins',sans-serif}
+.fsel:hover,.fsel.active{background:var(--lime);border-color:var(--lime);color:#035341;font-weight:600}
+.fsel option{color:#1a1a1a;background:#fff;font-weight:400}
+.rnotice{font-size:10px;color:var(--text3);margin-top:2px}
+.notice-list{list-style:none;margin:0;padding:0}
+.notice-list li{display:grid;grid-template-columns:96px 1fr;gap:12px;padding:8px 0;border-bottom:1px solid var(--grey2);font-size:12px;line-height:1.5}
+.notice-list li:last-child{border-bottom:none}
+.notice-list .n-date{font-weight:600;color:var(--text);white-space:nowrap}
+.notice-list .n-type{font-weight:600;color:#035341}
+.notice-list .n-note{color:var(--text3)}
+.notice-list li.minor .n-type{color:var(--text3);font-weight:500}
 #stats-bar{background:var(--navy);border-top:1px solid rgba(255,255,255,0.07);padding:14px 40px}
 .stats-inner{max-width:1400px;margin:0 auto;display:flex;gap:28px;flex-wrap:wrap;align-items:center}
 .stat{display:flex;align-items:center;gap:7px}
@@ -1214,6 +1225,10 @@ html{font-family:'Poppins',sans-serif;font-size:16px;color:var(--text);backgroun
       <button class="fbtn" data-f="c3c4">C3 / C4 — serious failings</button>
       <button class="fbtn" data-f="concern">G3/G4 or V3/V4</button>
       <button class="fbtn" data-f="unassessed">Not yet assessed</button>
+      <button class="fbtn" data-f="recent">Most recent notices</button>
+      <select id="year-filter" class="fsel" aria-label="Regulatory notices by year">
+        <option value="all">Notices: any year</option>
+      </select>
     </div>
     <div class="filter-row" id="region-filter-row" style="margin-top:8px">
       <button class="fbtn active" data-r="all">All regions</button>
@@ -1369,10 +1384,57 @@ let currentFilter='all';
 let currentRegion='all';
 let currentSearch='';
 let selectedIdx=null;
+let currentYear='all';
+
+// ── Regulatory notices ───────────────────────────────────────────────────────
+// History per provider (reg_code -> newest first), from the change log on each
+// provider's GOV.UK judgement page. Loaded from Supabase in loadLiveJudgements().
+let NOTICES={};
+const NOTICE_TYPES=['Regulatory judgement','Grading under review','Regulatory notice','Regulatory notice removed','Enforcement notice','First published'];
+const RECENT_NOTICES=20;
+
+function providerNotices(p){
+  const list=NOTICES[p.reg_code];
+  if(list&&list.length) return list;
+  // History not loaded: fall back to the latest publication from the judgements data
+  return p.publication_date?[{date:p.publication_date,type:p.publication_type==='Grading Under Review'?'Grading under review':'Regulatory judgement',note:'',url:p.source_url||''}]:[];
+}
+// Latest notice (optionally within a year); ignores corrections and provider changes.
+function latestNotice(p,year){
+  return providerNotices(p).find(n=>NOTICE_TYPES.includes(n.type)&&(!year||year==='all'||n.date.startsWith(year)))||null;
+}
+function fmtDate(d){
+  return new Date(d+'T00:00:00Z').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric',timeZone:'UTC'});
+}
+function escHtml(s){
+  return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function noticesHtml(p){
+  const list=providerNotices(p);
+  if(!list.length) return '<p style="font-size:13px;color:var(--text3);margin:0">No notice history available.</p>';
+  return `<ul class="notice-list">${list.map(n=>{
+    const showNote=n.note&&!/^(latest (regulatory judgement|rj)\b|first published)/i.test(n.note);
+    return `<li class="${NOTICE_TYPES.includes(n.type)?'':'minor'}"><span class="n-date">${fmtDate(n.date)}</span><span>`
+      +`<span class="n-type">${escHtml(n.type)}</span>`
+      +(showNote?` <span class="n-note">— ${escHtml(n.note)}</span>`:'')
+      +(n.url?` <a href="${escHtml(n.url)}" target="_blank" rel="noopener" style="font-size:11px;white-space:nowrap">GOV.UK ↗</a>`:'')
+      +`</span></li>`;
+  }).join('')}</ul>`;
+}
+function populateYearFilter(){
+  const sel=document.getElementById('year-filter');
+  const years=new Set();
+  DATA.forEach(p=>providerNotices(p).forEach(n=>{ if(NOTICE_TYPES.includes(n.type)) years.add(n.date.slice(0,4)); }));
+  sel.innerHTML='<option value="all">Notices: any year</option>'
+    +[...years].sort().reverse().map(y=>`<option value="${y}">Notices in ${y}</option>`).join('');
+  sel.value=years.has(currentYear)?currentYear:'all';
+  currentYear=sel.value;
+  sel.classList.toggle('active',currentYear!=='all');
+}
 
 function applyFilters(){
   const q=currentSearch.toLowerCase();
-  return DATA.filter(p=>{
+  const out=DATA.filter(p=>{
     // Stub LAs: only show in search results, never in browse
     if(p._stub==='true' && !q) return false;
     // search
@@ -1383,6 +1445,8 @@ function applyFilters(){
       const r=(p.region||'').replace('South Wst','South West').trim();
       if(r!==currentRegion)return false;
     }
+    // notice year filter
+    if(currentYear!=='all'&&!latestNotice(p,currentYear))return false;
     // type filter
     if(currentFilter==='prp'&&p.type!=='Private Registered Provider')return false;
     if(currentFilter==='la'&&(p.type!=='Local Authority'||p._stub==='true'))return false;
@@ -1396,13 +1460,19 @@ function applyFilters(){
     }
     if(currentFilter==='unassessed'&&p.consumer_change!=='Not yet assessed')return false;
     // hide unassessed from all other grade filters unless explicitly selected
-    if(currentFilter!=='unassessed'&&currentFilter!=='all'&&currentFilter!=='prp'&&currentFilter!=='la'&&p.consumer_change==='Not yet assessed')return false;
+    if(currentFilter!=='unassessed'&&currentFilter!=='all'&&currentFilter!=='prp'&&currentFilter!=='la'&&currentFilter!=='recent'&&p.consumer_change==='Not yet assessed')return false;
     return true;
   });
+  if(currentFilter!=='recent') return out;
+  // Most recent notices: the providers behind the latest notices, newest first
+  return out.filter(p=>p._stub!=='true'&&latestNotice(p,currentYear))
+    .sort((a,b)=>latestNotice(b,currentYear).date.localeCompare(latestNotice(a,currentYear).date)||a.name.localeCompare(b.name))
+    .slice(0,RECENT_NOTICES);
 }
 
 function renderList(){
-  const filtered=applyFilters().sort((a,b)=>a.name.localeCompare(b.name));
+  const filtered=currentFilter==='recent'?applyFilters():applyFilters().sort((a,b)=>a.name.localeCompare(b.name));
+  const showNotice=currentFilter==='recent'||currentYear!=='all';
   document.getElementById('rcount').textContent=filtered.length+' results';
   if(currentView==='map'){ renderMapMarkers(); return; }
   const list=document.getElementById('rlist');
@@ -1417,6 +1487,7 @@ function renderList(){
       <div>
         <div class="rname">${p.name}</div>
         <div class="rtype">${p.type==='Local Authority'?'Local Authority':'Private Registered Provider'}</div>
+        ${showNotice&&latestNotice(p,currentYear)?`<div class="rnotice">${fmtDate(latestNotice(p,currentYear).date)} · ${latestNotice(p,currentYear).type}</div>`:''}
       </div>
       <div class="gpills">
         ${isUnassessed
@@ -1524,6 +1595,10 @@ function selectProvider(idx){
           <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:rgba(255,255,255,0.45);margin-bottom:2px">Size band</div>
           <div style="font-size:12px;font-weight:500;color:rgba(255,255,255,0.75)">${sizeLabel(p.num_properties)}</div>
         </div>
+        ${latestNotice(p)?`<div>
+          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:rgba(255,255,255,0.45);margin-bottom:2px">Latest notice</div>
+          <div style="font-size:12px;font-weight:500;color:rgba(255,255,255,0.75)">${fmtDate(latestNotice(p).date)} · ${latestNotice(p).type}</div>
+        </div>`:''}
       </div>`:''}
       <div class="grades-row">
         <div class="gc">
@@ -1579,6 +1654,10 @@ function selectProvider(idx){
           <div class="sec-title">Improvement actions required</div>
           <div class="fbox warn">${formatBullets(p.improvement_actions)}</div>
         </div>`:''}
+        <div class="sec">
+          <div class="sec-title">Regulatory notices</div>
+          ${noticesHtml(p)}
+        </div>
       </div>
       
       <div class="tab-pane" id="tab-benchmark">
@@ -1716,6 +1795,13 @@ document.querySelectorAll('.filter-row:not(#region-filter-row) .fbtn').forEach(b
   });
 });
 
+// Notice year filter (combines with the buttons above)
+document.getElementById('year-filter').addEventListener('change',e=>{
+  currentYear=e.target.value;
+  e.target.classList.toggle('active',currentYear!=='all');
+  renderList();
+});
+
 // Initial render
 renderList();
 setTimeout(()=>{
@@ -1735,21 +1821,59 @@ const RSH_LIVE_URL='https://fygnjmrtpsdlkmjkbgwx.supabase.co/rest/v1/rsh_judgeme
 const RSH_LIVE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ5Z25qbXJ0cHNkbGttamtiZ3d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI1OTI1OTIsImV4cCI6MjEwODE2ODU5Mn0.cfkFd6zhTr7mQYyAy1lJUF5Sjt55UiMUUu9GBReKYTY';
 const RSH_SUMMARY_FIELDS=['consumer_meaning','governance_meaning','viability_meaning','consumer_failures','governance_failures','viability_failures','improvement_actions'];
 
+const RSH_NOTICES_URL='https://fygnjmrtpsdlkmjkbgwx.supabase.co/rest/v1/rsh_notices?select=reg_code,page_title,notice_date,notice_type,note,url&order=notice_date.desc,id.desc';
+
 async function loadLiveJudgements(){
-  try{
-    const res=await fetch(RSH_LIVE_URL,{headers:{apikey:RSH_LIVE_KEY,Authorization:'Bearer '+RSH_LIVE_KEY}});
-    if(!res.ok) return;
-    const rows=await res.json();
-    const byCode=new Map(DATA.map(p=>[p.reg_code,p]));
-    let changed=0;
-    rows.forEach(r=>{ const p=byCode.get(r.reg_code); if(p&&mergeJudgement(p,r)) changed++; });
-    if(!changed) return;
-    renderStats();
-    renderList();
-    if(selectedIdx!==null) selectProvider(selectedIdx);
-  }catch(err){
-    console.warn('Live RSH judgements unavailable; showing built-in data.',err);
+  const headers={apikey:RSH_LIVE_KEY,Authorization:'Bearer '+RSH_LIVE_KEY};
+  const [rows,notices]=await Promise.all([
+    fetch(RSH_LIVE_URL,{headers}).then(r=>r.ok?r.json():[]).catch(()=>[]),
+    fetchAllNotices(headers).catch(()=>[]),
+  ]);
+  if(!rows.length&&!notices.length){
+    console.warn('Live RSH data unavailable; showing built-in data.');
+    return;
   }
+  const byCode=new Map(DATA.map(p=>[p.reg_code,p]));
+  let changed=0;
+  rows.forEach(r=>{ const p=byCode.get(r.reg_code); if(p&&mergeJudgement(p,r)) changed++; });
+  if(notices.length){ applyNotices(notices); changed++; }
+  populateYearFilter();
+  if(!changed) return;
+  renderStats();
+  renderList();
+  if(selectedIdx!==null) selectProvider(selectedIdx);
+}
+
+// The API returns at most 1,000 rows per request, so page through the history.
+async function fetchAllNotices(headers){
+  const rows=[], size=1000;
+  for(let from=0;;from+=size){
+    const res=await fetch(RSH_NOTICES_URL,{headers:{...headers,'Range-Unit':'items',Range:`${from}-${from+size-1}`}});
+    if(!res.ok) break;
+    const batch=await res.json();
+    rows.push(...batch);
+    if(batch.length<size) break;
+  }
+  return rows;
+}
+
+// Groups notices by provider. Pages that name no registration code are matched
+// to a provider by name.
+function applyNotices(rows){
+  const norm=s=>String(s||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+  const codes=new Set(DATA.map(p=>p.reg_code));
+  const byName=new Map(DATA.map(p=>[norm(p.name),p.reg_code]));
+  const out={}, seen=new Set();
+  rows.forEach(r=>{
+    const code=codes.has(r.reg_code)?r.reg_code:byName.get(norm(r.page_title));
+    if(!code) return;
+    const key=`${code}|${r.notice_date}|${r.notice_type}|${r.note}`;
+    if(seen.has(key)) return;
+    seen.add(key);
+    (out[code]=out[code]||[]).push({date:r.notice_date,type:r.notice_type,note:r.note||'',url:r.url||''});
+  });
+  Object.values(out).forEach(l=>l.sort((a,b)=>b.date.localeCompare(a.date)));
+  NOTICES=out;
 }
 
 // Applies one Supabase row to a provider record; returns true if anything shown changed.
@@ -1761,6 +1885,7 @@ function mergeJudgement(p,r){
   p.governance_grade=g(r.governance_grade);   p.governance_change=g(r.governance_change);
   p.viability_grade=g(r.viability_grade);     p.viability_change=g(r.viability_change);
   p.publication_type=r.publication_type||'';
+  if(r.publication_date) p.publication_date=r.publication_date;
   p.engagement_process=r.engagement_process||'';
   if(r.source_url) p.source_url=r.source_url;
   if(r.summary_publication_date&&r.summary_publication_date===r.publication_date){
