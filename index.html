@@ -1731,8 +1731,8 @@ setTimeout(()=>{
 // The RSH data built into this page is a snapshot. On load, the current
 // judgements are fetched from Supabase (kept in step with RSH by the daily
 // rsh-sync job) and merged in. If Supabase can't be reached, the snapshot stays.
-const RSH_LIVE_URL='https://gfhcoltwjspjaovyandw.supabase.co/rest/v1/rsh_judgements?select=*&in_latest_table=eq.true';
-const RSH_LIVE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdmaGNvbHR3anNwamFvdnlhbmR3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2ODQwNjcsImV4cCI6MjA5NzI2MDA2N30.cNgRTqBcXu_C-mwSX7Hp_7vzjUxfRNU7yoJBhQbLejE';
+const RSH_LIVE_URL='https://fygnjmrtpsdlkmjkbgwx.supabase.co/rest/v1/rsh_judgements?select=*&in_latest_table=eq.true';
+const RSH_LIVE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ5Z25qbXJ0cHNkbGttamtiZ3d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI1OTI1OTIsImV4cCI6MjEwODE2ODU5Mn0.cfkFd6zhTr7mQYyAy1lJUF5Sjt55UiMUUu9GBReKYTY';
 const RSH_SUMMARY_FIELDS=['consumer_meaning','governance_meaning','viability_meaning','consumer_failures','governance_failures','viability_failures','improvement_actions'];
 
 async function loadLiveJudgements(){
@@ -4477,9 +4477,9 @@ async function feedbackSubmit() {
   const btn=document.getElementById('fb-submit-btn');
   btn.disabled=true; btn.textContent='Submitting…';
   try{
-    await fetch('https://gfhcoltwjspjaovyandw.supabase.co/rest/v1/feedback',{
+    await fetch('https://fygnjmrtpsdlkmjkbgwx.supabase.co/rest/v1/feedback',{
       method:'POST',
-      headers:{'apikey':'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdmaGNvbHR3anNwamFvdnlhbmR3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2ODQwNjcsImV4cCI6MjA5NzI2MDA2N30.cNgRTqBcXu_C-mwSX7Hp_7vzjUxfRNU7yoJBhQbLejE','Authorization':'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdmaGNvbHR3anNwamFvdnlhbmR3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2ODQwNjcsImV4cCI6MjA5NzI2MDA2N30.cNgRTqBcXu_C-mwSX7Hp_7vzjUxfRNU7yoJBhQbLejE',
+      headers:{'apikey':'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ5Z25qbXJ0cHNkbGttamtiZ3d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI1OTI1OTIsImV4cCI6MjEwODE2ODU5Mn0.cfkFd6zhTr7mQYyAy1lJUF5Sjt55UiMUUu9GBReKYTY','Authorization':'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ5Z25qbXJ0cHNkbGttamtiZ3d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI1OTI1OTIsImV4cCI6MjEwODE2ODU5Mn0.cfkFd6zhTr7mQYyAy1lJUF5Sjt55UiMUUu9GBReKYTY',
         'Content-Type':'application/json','Prefer':'return=minimal'},
       body:JSON.stringify({
         full_name:document.getElementById('fb-name').value.trim()||null,
@@ -4552,11 +4552,11 @@ async function gateSubmit() {
   btn.disabled = true; btn.textContent = 'Saving…';
 
   try {
-    await fetch('https://gfhcoltwjspjaovyandw.supabase.co/rest/v1/gate_registrations', {
+    await fetch('https://fygnjmrtpsdlkmjkbgwx.supabase.co/rest/v1/gate_registrations', {
       method: 'POST',
       headers: {
-        'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdmaGNvbHR3anNwamFvdnlhbmR3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2ODQwNjcsImV4cCI6MjA5NzI2MDA2N30.cNgRTqBcXu_C-mwSX7Hp_7vzjUxfRNU7yoJBhQbLejE',
-        'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdmaGNvbHR3anNwamFvdnlhbmR3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2ODQwNjcsImV4cCI6MjA5NzI2MDA2N30.cNgRTqBcXu_C-mwSX7Hp_7vzjUxfRNU7yoJBhQbLejE',
+        'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ5Z25qbXJ0cHNkbGttamtiZ3d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI1OTI1OTIsImV4cCI6MjEwODE2ODU5Mn0.cfkFd6zhTr7mQYyAy1lJUF5Sjt55UiMUUu9GBReKYTY',
+        'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ5Z25qbXJ0cHNkbGttamtiZ3d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI1OTI1OTIsImV4cCI6MjEwODE2ODU5Mn0.cfkFd6zhTr7mQYyAy1lJUF5Sjt55UiMUUu9GBReKYTY',
         'Content-Type': 'application/json',
         'Prefer': 'return=minimal'
       },
